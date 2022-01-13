@@ -1,0 +1,62 @@
+---
+apiVersion: mutations.gatekeeper.sh/v1alpha1
+kind: AssignMetadata
+metadata:
+name: demo-annotation-owner
+namespace: default
+spec:
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: ["*"]
+        kinds: ["Pod"]
+  location: "metadata.annotations.owner"
+  parameters:
+    assign:
+      value:  "admin"
+
+---
+apiVersion: mutations.gatekeeper.sh/v1alpha1
+kind: Assign
+metadata:
+name: demo-privileged
+namespace: default
+spec:
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: ["*"]
+        kinds: ["Pod"]
+  applyTo:
+  - groups: [""]
+    kinds: ["Pod"]
+    versions: ["v1"]
+  location: "spec.containers[name:foo].securityContext.privileged"
+  parameters:
+    assign:
+      value: false
+
+---
+apiVersion: mutations.gatekeeper.sh/v1alpha1
+kind: Assign
+metadata:
+name: demo-sidecar
+namespace: default
+spec:
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: ["*"]
+        kinds: ["Pod"]
+  applyTo:
+  - groups: [""]
+    kinds: ["Pod"]
+    versions: ["v1"]
+  location: "spec.containers[name:networking]"
+  parameters:
+    assign:
+      value:
+        name: "networking"
+        imagePullPolicy: Always
+        image: docker.io/centos
+        command: ["/bin/bash", "-c", "sleep INF"]
