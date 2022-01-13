@@ -1,7 +1,7 @@
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
-  name: placement-gatekeeper-purpose
+  name: placement-gatekeeper-policy
   namespace: policies
 spec:
   clusterConditions:
@@ -13,16 +13,16 @@ spec:
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
-  name: binding-gatekeeper-purpose
+  name: binding-gatekeeper-policy
   namespace: policies
 placementRef:
   apiGroup: apps.open-cluster-management.io
   kind: PlacementRule
-  name: placement-gatekeeper-purpose
+  name: placement-gatekeeper-policy
 subjects:
 - apiGroup: policy.open-cluster-management.io
   kind: Policy
-  name: gatekeeper-purpose
+  name: gatekeeper-policy
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
@@ -31,7 +31,7 @@ metadata:
     policy.open-cluster-management.io/categories: CM Configuration Management
     policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
     policy.open-cluster-management.io/standards: NIST SP 800-53
-  name: gatekeeper-purpose
+  name: gatekeeper-policy
   namespace: policies
 spec:
   disabled: false
@@ -40,27 +40,98 @@ spec:
       apiVersion: policy.open-cluster-management.io/v1
       kind: ConfigurationPolicy
       metadata:
-        name: gatekeeper-purpose
+        name: gatekeeper-policy
       spec:
         object-templates:
         - complianceType: musthave
           objectDefinition:
-            apiVersion: mutations.gatekeeper.sh/v1alpha1
-            kind: AssignMetadata
+            apiVersion: templates.gatekeeper.sh/v1beta1
+            kind: ConstraintTemplate
             metadata:
-              name: demo-annotation-owner
-              namespace: policies
+              name: k8srequiredlabels
             spec:
-              location: metadata.annotations.owner
+              crd:
+                spec:
+                  names:
+                    kind: K8sRequiredLabels
+                  validation:
+                    openAPIV3Schema:
+                      properties:
+                        labels:
+                          items: string
+                          type: array
+              targets:
+              - rego: |
+                  package k8srequiredlabels
+
+                  violation[{"msg": msg, "details": {"missing_labels": missing}}] {
+                    provided := {label | input.review.object.metadata.labels[label]}
+                    required := {label | label := input.parameters.labels[_]}
+                    missing := required - provided
+                    count(missing) > 0
+                    msg := sprintf("you must provide labels: %v", [missing])
+                  }
+                target: admission.k8s.gatekeeper.sh
+        - complianceType: musthave
+          objectDefinition:
+            apiVersion: constraints.gatekeeper.sh/v1beta1
+            kind: K8sRequiredLabels
+            metadata:
+              name: ns-must-have-gk
+            spec:
               match:
                 kinds:
                 - apiGroups:
-                  - '*'
+                  - ""
                   kinds:
-                  - Pod
-                scope: Namespaced
+                  - Namespace
               parameters:
-                assign:
-                  value: admin
+                labels:
+                - gatekeeper
         remediationAction: enforce
+        severity: low
+  - objectDefinition:
+      apiVersion: policy.open-cluster-management.io/v1
+      kind: ConfigurationPolicy
+      metadata:
+        name: inform-gatekeeper-audit-ns-must-have-gk
+      spec:
+        namespaceSelector:
+          exclude:
+          - kube-*
+          include:
+          - '*'
+        object-templates:
+        - complianceType: musthave
+          objectDefinition:
+            apiVersion: constraints.gatekeeper.sh/v1beta1
+            kind: K8sRequiredLabels
+            metadata:
+              name: ns-must-have-gk
+            status:
+              totalViolations: 0
+        remediationAction: inform
+        severity: low
+  - objectDefinition:
+      apiVersion: policy.open-cluster-management.io/v1
+      kind: ConfigurationPolicy
+      metadata:
+        name: inform-gatekeeper-admission-ns-must-have-gk
+      spec:
+        namespaceSelector:
+          exclude:
+          - kube-*
+          include:
+          - '*'
+        object-templates:
+        - complianceType: mustnothave
+          objectDefinition:
+            annotations:
+            - constraint_action: deny
+              constraint_kind: K8sRequiredLabels
+              constraint_name: ns-must-have-gk
+              event_type: violation
+            apiVersion: v1
+            kind: Event
+        remediationAction: inform
         severity: low

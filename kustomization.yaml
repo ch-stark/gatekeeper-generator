@@ -1,2 +1,3 @@
 generators:
   - gatekeeper-policy-template.yaml
+  - mutating_files.yaml  
