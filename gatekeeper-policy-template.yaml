@@ -6,6 +6,6 @@ policyDefaults:
   namespace: policies
   remediationAction: enforce
 policies:
-  - name: gatekeeper-purpose
+  - name: gatekeeper-policy
     manifests:
       - path: gatekeeper.yaml
