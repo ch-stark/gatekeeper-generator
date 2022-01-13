@@ -1,0 +1,66 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: placement-gatekeeper-purpose
+  namespace: policies
+spec:
+  clusterConditions:
+  - status: "True"
+    type: ManagedClusterConditionAvailable
+  clusterSelector:
+    matchExpressions: []
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: binding-gatekeeper-purpose
+  namespace: policies
+placementRef:
+  apiGroup: apps.open-cluster-management.io
+  kind: PlacementRule
+  name: placement-gatekeeper-purpose
+subjects:
+- apiGroup: policy.open-cluster-management.io
+  kind: Policy
+  name: gatekeeper-purpose
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+  name: gatekeeper-purpose
+  namespace: policies
+spec:
+  disabled: false
+  policy-templates:
+  - objectDefinition:
+      apiVersion: policy.open-cluster-management.io/v1
+      kind: ConfigurationPolicy
+      metadata:
+        name: gatekeeper-purpose
+      spec:
+        object-templates:
+        - complianceType: musthave
+          objectDefinition:
+            apiVersion: mutations.gatekeeper.sh/v1alpha1
+            kind: AssignMetadata
+            metadata: null
+            name: demo-annotation-owner
+            namespace: policies
+            spec:
+              location: metadata.annotations.owner
+              match:
+                kinds:
+                - apiGroups:
+                  - '*'
+                  kinds:
+                  - Pod
+                scope: Namespaced
+              parameters:
+                assign:
+                  value: admin
+        remediationAction: enforce
+        severity: low
