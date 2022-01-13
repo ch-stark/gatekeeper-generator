@@ -1,0 +1,12 @@
+
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: gatekeeper-mutating-policy
+policyDefaults:
+  namespace: policies
+  remediationAction: enforce
+policies:
+  - name: gatekeeper-mutating-policy
+    manifests:
+      - path: mutating-files.yaml
